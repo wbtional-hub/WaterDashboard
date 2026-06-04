@@ -32,3 +32,44 @@
 ## 下一步要求
 
 - 下一步进入第一阶段编码前，必须先确认基础工程选型。
+
+## 第 2 次开发：第一阶段第 1 步独立启动工程骨架
+
+### 本次目标
+
+- 建立“统一智慧水务大屏系统”的独立微服务工程骨架。
+- 本次只开发工程基础能力，不开发完整业务功能。
+
+### 实际修改
+
+- 已建立 Java 17 + Spring Boot + Maven 后端工程。
+- 已建立 Vue 3 + Vite + TypeScript + Pinia + Vue Router 前端工程。
+- 已预留 PostgreSQL JDBC、PostGIS Docker Compose 和 Flyway 迁移目录。
+- 已建立统一响应结构：`success`、`code`、`message`、`data`、`traceId`。
+- 已建立请求 `traceId` 机制，支持沿用 `X-Trace-Id`、响应头返回、响应体返回和日志输出。
+- 已建立全局异常处理，不向前端暴露完整堆栈。
+- 已建立 `GET /api/health` 健康检查接口和骨架异常验证接口。
+- 已建立前端 `/`、`/health` 路由、基础布局和后端健康检查调用。
+- 已建立前端统一 request 封装，可读取后端 `traceId` 并显示友好错误摘要。
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端接口测试全部成功。
+- `mvn package -DskipTests` 通过，后端可生成可执行 JAR。
+- 后端实际启动成功，`GET /api/health` 返回统一响应，响应头和响应体均包含 `traceId`。
+- `GET /api/health/error-demo` 返回统一错误结构，不暴露堆栈。
+- `npm install` 成功，未发现依赖漏洞。
+- `npm run build` 成功。
+- `npm run dev` 实际启动成功，首页返回 HTTP 200，Vite 代理可调用后端健康检查接口。
+- 当前环境的浏览器自动化运行库缺少 `playwright-core`，未完成真实浏览器 DOM 验证；前端错误处理逻辑和后端不可用时的代理失败已完成结构验证。
+
+### 遗留风险
+
+- Flyway 默认关闭，下一步建立平台配置库迁移基线后再启用。
+- 数据库真实密码必须通过环境变量或本地 `.env` 提供，不得提交仓库。
+- 当前 CORS 仅允许本地开发地址，后续需按部署环境配置。
+- `/api/health/error-demo` 仅用于骨架异常验证，后续应移除或限制在非生产环境。
+
+### 未开发能力
+
+- 未开发数据源配置中心、组件模板管理、大屏编辑器、SQL 执行、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
