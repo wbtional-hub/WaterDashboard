@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: water-dashboard-server
+  datasource:
+    url: ${PLATFORM_DB_URL:jdbc:postgresql://localhost:5432/water_dashboard}
+    username: ${PLATFORM_DB_USERNAME:water_dashboard}
+    password: ${PLATFORM_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: -1
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  version: 0.1.0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] %logger{36} - %msg%n"
+

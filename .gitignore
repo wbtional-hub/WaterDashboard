@@ -1,0 +1,37 @@
+﻿# dependencies
+node_modules/
+target/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# logs
+logs/
+*.log
+
+# env / secrets
+.env
+.env.*
+application-local.yml
+application-dev.yml
+application-prod.yml
+
+# secrets / keys
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# generated
+*.class
+*.jar
+*.war
