@@ -2,7 +2,18 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
-import { getDashboardDraft, listDashboards, saveDashboardDraft, type DashboardDraft, type DashboardItem } from '@/api/dashboards'
+import {
+  createDashboardCard,
+  deleteDashboardCard,
+  getDashboardDraft,
+  listDashboardCards,
+  listDashboards,
+  saveDashboardDraft,
+  updateDashboardCard,
+  type DashboardCardItem,
+  type DashboardDraft,
+  type DashboardItem,
+} from '@/api/dashboards'
 import { listComponentTemplates, type ComponentTemplateItem } from '@/api/componentTemplates'
 import type { RequestError } from '@/api/request'
 
@@ -35,6 +46,8 @@ const dashboardId = computed(() => String(route.params.id || ''))
 const dashboard = ref<DashboardItem | null>(null)
 const draft = ref<DashboardDraft | null>(null)
 const templates = ref<ComponentTemplateItem[]>([])
+const cards = ref<DashboardCardItem[]>([])
+const selectedCardId = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
@@ -76,19 +89,23 @@ const canvasPreviewStyle = computed(() => {
   }
 })
 
+const selectedCard = computed(() => cards.value.find((card) => card.cardId === selectedCardId.value) || null)
+
 async function loadEditor() {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const [dashboardResponse, draftResponse, templateResponse] = await Promise.all([
+    const [dashboardResponse, draftResponse, templateResponse, cardResponse] = await Promise.all([
       listDashboards({}),
       getDashboardDraft(dashboardId.value),
       listComponentTemplates({ status: 'ENABLED' }),
+      listDashboardCards(dashboardId.value),
     ])
     dashboard.value = dashboardResponse.data.items.find((item) => item.id === dashboardId.value) || null
     draft.value = draftResponse.data
     templates.value = templateResponse.data.items
+    cards.value = cardResponse.data
     applyDraftConfig(draftResponse.data.configJson)
   } catch (error) {
     showError(error)
@@ -125,6 +142,91 @@ async function saveDraft() {
   } finally {
     saving.value = false
   }
+}
+
+async function addTemplate(template: ComponentTemplateItem) {
+  saving.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const offset = cards.value.length * 24
+    const response = await createDashboardCard(dashboardId.value, {
+      title: template.name,
+      templateId: template.id,
+      x: 40 + offset,
+      y: 40 + offset,
+      enabled: true,
+      aiEnabled: false,
+      configJson: {},
+    })
+    await reloadDraftAndCards()
+    selectedCardId.value = response.data.cardId
+    successMessage.value = '卡片已添加到草稿'
+  } catch (error) {
+    showError(error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveSelectedCard() {
+  if (!selectedCard.value) {
+    return
+  }
+  saving.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const card = selectedCard.value
+    await updateDashboardCard(dashboardId.value, card.cardId, {
+      cardCode: card.cardCode,
+      title: card.title,
+      x: card.x,
+      y: card.y,
+      width: card.width,
+      height: card.height,
+      enabled: card.enabled,
+      aiEnabled: card.aiEnabled,
+      configJson: card.configJson || {},
+    })
+    await reloadDraftAndCards()
+    selectedCardId.value = card.cardId
+    successMessage.value = '卡片属性已保存'
+  } catch (error) {
+    showError(error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function removeSelectedCard() {
+  if (!selectedCard.value || !window.confirm(`确认删除卡片“${selectedCard.value.title}”？`)) {
+    return
+  }
+  saving.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const cardId = selectedCard.value.cardId
+    await deleteDashboardCard(dashboardId.value, cardId)
+    selectedCardId.value = ''
+    await reloadDraftAndCards()
+    successMessage.value = '卡片已删除'
+  } catch (error) {
+    showError(error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function reloadDraftAndCards() {
+  const [draftResponse, cardResponse] = await Promise.all([
+    getDashboardDraft(dashboardId.value),
+    listDashboardCards(dashboardId.value),
+  ])
+  draft.value = draftResponse.data
+  cards.value = cardResponse.data
+  applyDraftConfig(draftResponse.data.configJson)
 }
 
 function normalizeDraft(rawConfig: Record<string, unknown>): DraftConfig {
@@ -220,6 +322,9 @@ onMounted(loadEditor)
           <strong>{{ template.name }}</strong>
           <span>{{ template.category }} / {{ renderEngineLabel(template.renderEngine) }}</span>
           <small>{{ template.templateCode }}</small>
+          <button type="button" class="secondary-button" :disabled="saving" @click="addTemplate(template)">
+            添加到画布
+          </button>
         </article>
       </aside>
 
@@ -231,37 +336,91 @@ onMounted(loadEditor)
         </div>
         <div class="canvas-viewport">
           <div class="empty-canvas" :style="canvasPreviewStyle">
-            <div v-if="editorConfig.cards.length === 0" class="canvas-empty-state">
+            <button
+              v-for="card in cards"
+              :key="card.cardId"
+              type="button"
+              :class="['canvas-card', selectedCardId === card.cardId ? 'canvas-card-selected' : '']"
+              :style="{
+                left: `${card.x}px`,
+                top: `${card.y}px`,
+                width: `${card.width}px`,
+                height: `${card.height}px`,
+              }"
+              @click="selectedCardId = card.cardId"
+            >
+              <strong>{{ card.title }}</strong>
+              <span>{{ card.templateCode }} / {{ card.renderEngine }}</span>
+              <small>{{ card.aiEnabled ? 'AI 已启用' : 'AI 未启用' }}</small>
+            </button>
+            <div v-if="cards.length === 0" class="canvas-empty-state">
               <strong>暂无卡片</strong>
-              <span>请从左侧组件模板库添加。真实拖拽与卡片实例将在后续阶段开放。</span>
+              <span>请从左侧组件模板库点击添加。复杂拖拽与数据绑定将在后续阶段开放。</span>
             </div>
           </div>
         </div>
       </main>
 
       <aside class="editor-panel property-panel">
-        <h3>基础属性</h3>
-        <label>
-          画布宽度
-          <input v-model.number="editorConfig.canvas.width" type="number" min="320" />
-        </label>
-        <label>
-          画布高度
-          <input v-model.number="editorConfig.canvas.height" type="number" min="240" />
-        </label>
-        <label>
-          背景色
-          <input v-model="editorConfig.canvas.background.value" type="color" />
-        </label>
-        <label>
-          主题色
-          <input v-model="editorConfig.theme.primaryColor" type="color" />
-        </label>
-        <label class="checkbox-field">
-          <input v-model="editorConfig.aiContext.enabled" type="checkbox" />
-          AI Context 预留开关
-        </label>
-        <p class="muted-line">当前仅保存草稿配置，不调用 AI Gateway，不生成发布 Manifest。</p>
+        <template v-if="!selectedCard">
+          <h3>画布属性</h3>
+          <label>
+            画布宽度
+            <input v-model.number="editorConfig.canvas.width" type="number" min="320" />
+          </label>
+          <label>
+            画布高度
+            <input v-model.number="editorConfig.canvas.height" type="number" min="240" />
+          </label>
+          <label>
+            背景色
+            <input v-model="editorConfig.canvas.background.value" type="color" />
+          </label>
+          <label>
+            主题色
+            <input v-model="editorConfig.theme.primaryColor" type="color" />
+          </label>
+          <label class="checkbox-field">
+            <input v-model="editorConfig.aiContext.enabled" type="checkbox" />
+            AI Context 预留开关
+          </label>
+          <p class="muted-line">当前仅保存草稿配置，不调用 AI Gateway，不生成发布 Manifest。</p>
+        </template>
+
+        <template v-else>
+          <h3>卡片属性</h3>
+          <label>
+            标题
+            <input v-model.trim="selectedCard.title" />
+          </label>
+          <label>
+            X
+            <input v-model.number="selectedCard.x" type="number" min="0" />
+          </label>
+          <label>
+            Y
+            <input v-model.number="selectedCard.y" type="number" min="0" />
+          </label>
+          <label>
+            宽度
+            <input v-model.number="selectedCard.width" type="number" min="80" />
+          </label>
+          <label>
+            高度
+            <input v-model.number="selectedCard.height" type="number" min="60" />
+          </label>
+          <label class="checkbox-field">
+            <input v-model="selectedCard.enabled" type="checkbox" />
+            启用卡片
+          </label>
+          <label class="checkbox-field">
+            <input v-model="selectedCard.aiEnabled" type="checkbox" />
+            AI 启用预留
+          </label>
+          <button type="button" class="primary-button" :disabled="saving" @click="saveSelectedCard">保存卡片属性</button>
+          <button type="button" class="danger-button" :disabled="saving" @click="removeSelectedCard">删除卡片</button>
+          <button type="button" class="secondary-button" @click="selectedCardId = ''">返回画布属性</button>
+        </template>
       </aside>
     </div>
   </section>

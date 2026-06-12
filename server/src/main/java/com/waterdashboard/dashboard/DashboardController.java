@@ -1,12 +1,16 @@
 package com.waterdashboard.dashboard;
 
 import com.waterdashboard.common.response.ApiResponse;
+import com.waterdashboard.dashboard.dto.DashboardCardRequest;
+import com.waterdashboard.dashboard.dto.DashboardCardResponse;
 import com.waterdashboard.dashboard.dto.DashboardDraftRequest;
 import com.waterdashboard.dashboard.dto.DashboardDraftResponse;
 import com.waterdashboard.dashboard.dto.DashboardListResponse;
 import com.waterdashboard.dashboard.dto.DashboardRequest;
 import com.waterdashboard.dashboard.dto.DashboardResponse;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -70,5 +74,31 @@ public class DashboardController {
             @PathVariable UUID id,
             @RequestBody DashboardDraftRequest request) {
         return ApiResponse.success(dashboardService.saveDraft(id, request));
+    }
+
+    @GetMapping("/{id}/draft/cards")
+    public ApiResponse<List<DashboardCardResponse>> listCards(@PathVariable UUID id) {
+        return ApiResponse.success(dashboardService.listCards(id));
+    }
+
+    @PostMapping("/{id}/draft/cards")
+    public ApiResponse<DashboardCardResponse> createCard(
+            @PathVariable UUID id,
+            @RequestBody DashboardCardRequest request) {
+        return ApiResponse.success(dashboardService.createCard(id, request));
+    }
+
+    @PutMapping("/{id}/draft/cards/{cardId}")
+    public ApiResponse<DashboardCardResponse> updateCard(
+            @PathVariable UUID id,
+            @PathVariable UUID cardId,
+            @RequestBody DashboardCardRequest request) {
+        return ApiResponse.success(dashboardService.updateCard(id, cardId, request));
+    }
+
+    @DeleteMapping("/{id}/draft/cards/{cardId}")
+    public ApiResponse<Void> deleteCard(@PathVariable UUID id, @PathVariable UUID cardId) {
+        dashboardService.deleteCard(id, cardId);
+        return ApiResponse.success(null);
     }
 }

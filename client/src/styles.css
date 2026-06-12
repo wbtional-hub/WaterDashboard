@@ -549,6 +549,7 @@ textarea {
 }
 
 .empty-canvas {
+  position: relative;
   display: grid;
   place-items: center;
   max-width: 100%;
@@ -559,6 +560,35 @@ textarea {
     linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
   background-size: 24px 24px;
   box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, 0.24);
+}
+
+.canvas-card {
+  position: absolute;
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  border: 1px solid rgba(100, 200, 233, 0.45);
+  border-radius: 10px;
+  padding: 0.8rem;
+  color: #dce8f2;
+  text-align: left;
+  background: rgba(4, 18, 31, 0.82);
+  box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
+}
+
+.canvas-card:hover {
+  transform: none;
+  background: rgba(7, 32, 53, 0.9);
+}
+
+.canvas-card-selected {
+  border-color: #49d49d;
+  box-shadow: 0 0 0 2px rgba(73, 212, 157, 0.22), 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
+}
+
+.canvas-card span,
+.canvas-card small {
+  color: #91aabd;
 }
 
 .canvas-empty-state {

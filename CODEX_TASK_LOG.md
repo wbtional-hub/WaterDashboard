@@ -401,3 +401,62 @@
 ### 未开发能力
 
 - 未开发真实拖拽、卡片实例新增、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
+
+## 第 9 次开发：第一阶段第 7 步卡片实例基础添加与画布草稿保存
+
+### 本次目标
+
+- 开发编辑器中从组件模板库添加基础卡片实例的最小闭环。
+- 本次只实现卡片实例添加、基础属性编辑、删除、草稿 `cards` 同步保存和审计记录。
+- 本次不开发真实拖拽、卡片 SQL 预览、字段映射、发布版本、浏览态大屏、真实 GIS/三维/G6、AI Gateway、完整权限中心或 License Center。
+- 本次同时新增 `V7` 迁移，修复 DbVisualizer 等工具对 PostgreSQL `?|` 操作符的兼容性问题。
+
+### 实际修改
+
+- 新增后端卡片实例 DTO：`DashboardCardRequest`、`DashboardCardResponse`。
+- 新增卡片实例接口：列表、添加、编辑、删除。
+- 新增 `dashboard_card` 与 `dashboard_draft.config_json.cards` 的同步逻辑。
+- 卡片实例保存基础字段：模板引用、标题、位置、尺寸、启用状态、AI 启用预留开关、渲染引擎和默认数据绑定占位。
+- 编辑器左侧组件模板库新增“添加到画布”入口。
+- 编辑器画布新增卡片占位展示和选中状态。
+- 编辑器右侧属性面板支持编辑卡片标题、位置、尺寸、启用状态和 AI 启用预留开关。
+- 编辑器支持删除草稿卡片实例。
+- 草稿保存继续只影响 `dashboard_draft`，未写入 `dashboard_version`。
+- 新增 JSON 配置敏感字段名拦截，禁止在草稿或卡片配置中写入 `password`、`token`、`secret`、连接串、私钥等字段。
+- 新增 `V7__normalize_data_source_secret_check.sql`，将 `config_json ?| ARRAY[...]` 约束替换为 `jsonb_exists_any(config_json, ARRAY[...]::text[])`。
+- 更新 `database/README.md`，补充 DbVisualizer、`?|` 操作符和 `DO $$` 手工执行注意事项。
+
+### 新增接口
+
+- `GET /api/platform/dashboards/{id}/draft/cards`
+- `POST /api/platform/dashboards/{id}/draft/cards`
+- `PUT /api/platform/dashboards/{id}/draft/cards/{cardId}`
+- `DELETE /api/platform/dashboards/{id}/draft/cards/{cardId}`
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端新版服务启动成功，`GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+- Flyway 已确认 `V7` 迁移落库，`platform.flyway_schema_history` 中 `version=7` 记录数为 1。
+- 前端 `/`、`/data-sources`、`/component-templates`、`/dashboards`、`/dashboards/{id}/editor` 均返回 HTTP 200。
+- 已验证添加卡片实例成功，接口响应包含 `traceId`，未返回密码、真实连接串或 JDBC URL。
+- 已验证编辑卡片标题、位置、尺寸和 AI 启用预留开关成功。
+- 已验证删除卡片实例成功，删除后 `dashboard_card` 无 Step7 临时卡片残留。
+- 已验证删除后 `dashboard_draft.config_json.cards` 为空数组。
+- 已验证 `dashboard_version` 未写入记录，卡片草稿操作未影响发布版本。
+- 已验证 `platform.audit_log` 包含 `DASHBOARD_CARD_CREATE`、`DASHBOARD_CARD_UPDATE`、`DASHBOARD_CARD_DELETE` 记录。
+- 已验证向卡片配置写入敏感字段会被拒绝，且未落库。
+
+### 遗留风险
+
+- 当前卡片放置仍为按钮添加和属性面板编辑，不是真实拖拽、缩放、吸附线或图层管理。
+- 卡片当前只保存配置和占位展示，不执行 SQL、不绑定数据源、不做字段映射。
+- 卡片数据绑定对象当前只是占位结构，后续进入 SQL 配置前必须先补齐 SQL 解析、只读账号、超时、限行、审计和脱敏诊断策略。
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+- `/api/health/error-demo` 仍仅用于骨架异常验证，后续应移除或限制在非生产环境。
+
+### 未开发能力
+
+- 未开发真实拖拽画布、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。

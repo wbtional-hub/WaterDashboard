@@ -105,3 +105,17 @@ docker compose down
 ```
 
 如需同时删除本地数据库卷，必须先确认数据不再需要，再执行 `docker compose down -v`。
+
+## 手工执行迁移脚本的兼容性说明
+
+项目迁移脚本优先通过 Flyway 执行，也可以使用 `psql` 整文件执行。部分 JDBC 图形化工具手工拆分执行 PostgreSQL 脚本时可能存在兼容性问题：
+
+- PostgreSQL JSONB 操作符 `?|` 可能被 DbVisualizer 等工具识别为参数占位符并弹出 Parameter Markers。
+- `DO $$ ... $$` 匿名块或函数体中的 dollar quote 语法，如果被工具拆分执行，可能出现 Unterminated dollar quote。
+
+处理原则：
+
+- 已执行过的历史 Flyway 迁移脚本不要直接修改，避免 checksum 不一致。
+- 后续迁移中优先使用普通 SQL；JSONB 多键检查优先使用 `jsonb_exists_any(config_json, ARRAY[...]::text[])`。
+- 必须使用函数或触发器 `AS $$ ... $$` 时，建议由 Flyway 或 `psql -f` 执行，不建议在 DbVisualizer 中逐段拆分执行。
+- `V7__normalize_data_source_secret_check.sql` 已将数据源敏感键约束改为 `jsonb_exists_any(...)` 写法，以提升手工执行兼容性。
