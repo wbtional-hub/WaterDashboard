@@ -6,5 +6,4 @@
 
 `server/src/main/resources/db/migration/`
 
-当前阶段不创建业务表。
-
+当前阶段已创建平台配置库基础表，但不创建任何外部水务业务表。

@@ -16,6 +16,7 @@ logs/
 # env / secrets
 .env
 .env.*
+sn.txt
 application-local.yml
 application-dev.yml
 application-prod.yml

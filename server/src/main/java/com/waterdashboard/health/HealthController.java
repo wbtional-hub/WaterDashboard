@@ -16,19 +16,26 @@ public class HealthController {
 
     private final String applicationName;
     private final String applicationVersion;
+    private final DatabaseHealthService databaseHealthService;
 
     public HealthController(
             @Value("${spring.application.name}") String applicationName,
-            @Value("${app.version}") String applicationVersion
+            @Value("${app.version}") String applicationVersion,
+            DatabaseHealthService databaseHealthService
     ) {
         this.applicationName = applicationName;
         this.applicationVersion = applicationVersion;
+        this.databaseHealthService = databaseHealthService;
     }
 
     @GetMapping
     public ApiResponse<Map<String, Object>> health() {
+        DatabaseHealth databaseHealth = databaseHealthService.check();
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("status", "UP");
+        data.put("status", databaseHealth.postgresConnected() ? "UP" : "DEGRADED");
+        data.put("databaseStatus", databaseHealth.status());
+        data.put("postgresConnected", databaseHealth.postgresConnected());
+        data.put("postgisAvailable", databaseHealth.postgisAvailable());
         data.put("currentTime", OffsetDateTime.now(ZoneOffset.UTC));
         data.put("applicationName", applicationName);
         data.put("version", applicationVersion);
@@ -40,4 +47,3 @@ public class HealthController {
         throw new IllegalStateException("Health error demo");
     }
 }
-

@@ -3,6 +3,7 @@ services:
     image: postgis/postgis:16-3.4
     container_name: water-dashboard-postgis
     restart: unless-stopped
+    shm_size: 256mb
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-water_dashboard}
       POSTGRES_USER: ${POSTGRES_USER:-water_dashboard}
@@ -16,7 +17,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
 volumes:
   water-dashboard-postgis-data:
-

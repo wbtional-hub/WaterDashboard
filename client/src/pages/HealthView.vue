@@ -36,21 +36,24 @@ onMounted(loadHealth)
       <div>
         <p class="section-label">服务诊断</p>
         <h2>后端健康检查</h2>
-        <p>调用 <code>GET /api/health</code>，确认独立服务与 traceId 链路。</p>
+        <p>调用 <code>GET /api/health</code>，确认服务、PostgreSQL、PostGIS 与 traceId 链路。</p>
       </div>
       <button type="button" :disabled="loading" @click="loadHealth">
         {{ loading ? '检查中...' : '重新检查' }}
       </button>
     </div>
 
-    <div v-if="health" class="health-result success-result">
+    <div v-if="health" class="health-result" :class="{ 'success-result': health.status === 'UP' }">
       <div class="result-title">
-        <span class="status-dot"></span>
+        <span class="status-dot" :class="{ 'status-dot-warning': health.status !== 'UP' }"></span>
         <strong>服务状态：{{ health.status }}</strong>
       </div>
       <dl class="detail-list">
         <div><dt>应用名称</dt><dd>{{ health.applicationName }}</dd></div>
         <div><dt>版本号</dt><dd>{{ health.version }}</dd></div>
+        <div><dt>数据库状态</dt><dd>{{ health.databaseStatus }}</dd></div>
+        <div><dt>PostgreSQL</dt><dd>{{ health.postgresConnected ? '已连接' : '未连接' }}</dd></div>
+        <div><dt>PostGIS</dt><dd>{{ health.postgisAvailable ? '可用' : '不可用' }}</dd></div>
         <div><dt>当前时间</dt><dd>{{ health.currentTime }}</dd></div>
         <div><dt>traceId</dt><dd><code>{{ traceId }}</code></dd></div>
       </dl>

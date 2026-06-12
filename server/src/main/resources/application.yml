@@ -7,10 +7,21 @@ spring:
     password: ${PLATFORM_DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
-      initialization-fail-timeout: -1
+      pool-name: WaterDashboardPlatformPool
+      maximum-pool-size: ${PLATFORM_DB_POOL_SIZE:10}
+      connection-timeout: ${PLATFORM_DB_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${PLATFORM_DB_VALIDATION_TIMEOUT_MS:3000}
   flyway:
-    enabled: ${FLYWAY_ENABLED:false}
+    enabled: ${FLYWAY_ENABLED:true}
+    url: ${FLYWAY_URL:${PLATFORM_DB_URL:jdbc:postgresql://localhost:5432/water_dashboard}}
+    user: ${FLYWAY_USER:${PLATFORM_DB_USERNAME:water_dashboard}}
+    password: ${FLYWAY_PASSWORD:${PLATFORM_DB_PASSWORD:}}
     locations: classpath:db/migration
+    schemas: platform
+    default-schema: platform
+    create-schemas: true
+    validate-on-migrate: true
+    encoding: UTF-8
 
 server:
   port: ${SERVER_PORT:8080}
@@ -27,4 +38,3 @@ management:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] %logger{36} - %msg%n"
-

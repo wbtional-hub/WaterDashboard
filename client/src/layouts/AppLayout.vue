@@ -14,6 +14,7 @@ const systemStore = useSystemStore()
       <nav aria-label="主导航">
         <RouterLink to="/">系统首页</RouterLink>
         <RouterLink to="/health">健康检查</RouterLink>
+        <RouterLink to="/data-sources">数据源</RouterLink>
       </nav>
     </header>
 
@@ -27,4 +28,3 @@ const systemStore = useSystemStore()
     </footer>
   </div>
 </template>
-
