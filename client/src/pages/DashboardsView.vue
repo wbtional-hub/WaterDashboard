@@ -307,6 +307,7 @@ onMounted(loadList)
               <td>{{ formatTime(item.updatedAt) }}</td>
               <td class="actions-cell">
                 <button type="button" @click="startEdit(item)">编辑/草稿</button>
+                <RouterLink class="table-action-link" :to="`/dashboards/${item.id}/editor`">进入编辑器</RouterLink>
                 <button v-if="!item.enabled" type="button" @click="toggleDashboard(item, true)">启用</button>
                 <button v-else type="button" class="danger-button" @click="toggleDashboard(item, false)">停用</button>
               </td>

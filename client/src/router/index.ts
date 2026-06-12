@@ -5,6 +5,7 @@ import HomeView from '@/pages/HomeView.vue'
 import DataSourcesView from '@/pages/DataSourcesView.vue'
 import ComponentTemplatesView from '@/pages/ComponentTemplatesView.vue'
 import DashboardsView from '@/pages/DashboardsView.vue'
+import DashboardEditorView from '@/pages/DashboardEditorView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +34,11 @@ const router = createRouter({
       path: '/dashboards',
       name: 'dashboards',
       component: DashboardsView,
+    },
+    {
+      path: '/dashboards/:id/editor',
+      name: 'dashboard-editor',
+      component: DashboardEditorView,
     },
   ],
 })

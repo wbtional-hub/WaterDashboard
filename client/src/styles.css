@@ -439,6 +439,142 @@ textarea {
   color: #e8f7ff;
 }
 
+.table-action-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(129, 178, 205, 0.35);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  color: #e8f7ff;
+  background: rgba(21, 47, 67, 0.85);
+  font-size: 0.86rem;
+}
+
+.editor-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(129, 178, 205, 0.18);
+  border-radius: 16px;
+  background: rgba(8, 24, 38, 0.72);
+}
+
+.editor-title {
+  flex: 1;
+}
+
+.editor-title h2 {
+  margin: 0.25rem 0;
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+}
+
+.editor-title span {
+  color: #7f9bb0;
+  font-size: 0.86rem;
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr) 18rem;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.editor-panel,
+.canvas-stage {
+  border: 1px solid rgba(129, 178, 205, 0.18);
+  border-radius: 16px;
+  background: rgba(8, 24, 38, 0.72);
+}
+
+.editor-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.editor-panel h3 {
+  margin: 0;
+}
+
+.template-card {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(129, 178, 205, 0.14);
+  border-radius: 10px;
+  background: rgba(3, 13, 23, 0.45);
+}
+
+.template-card span,
+.template-card small {
+  color: #7f9bb0;
+}
+
+.canvas-stage {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 38rem;
+  overflow: hidden;
+}
+
+.canvas-meta {
+  display: flex;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(129, 178, 205, 0.14);
+  color: #91aabd;
+}
+
+.canvas-viewport {
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+.empty-canvas {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  border: 1px solid;
+  border-radius: 12px;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 24px 24px;
+  box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, 0.24);
+}
+
+.canvas-empty-state {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+  padding: 1rem;
+  color: #b8cede;
+  text-align: center;
+}
+
+.canvas-empty-state strong {
+  color: #e8f7ff;
+  font-size: 1.4rem;
+}
+
 @media (max-width: 760px) {
   .app-header,
   .page-heading,
@@ -458,7 +594,14 @@ textarea {
 
   .filters-panel,
   .data-source-grid,
-  .form-grid {
+  .form-grid,
+  .editor-layout,
+  .editor-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .editor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

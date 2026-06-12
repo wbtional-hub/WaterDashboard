@@ -342,3 +342,62 @@
 ### 未开发能力
 
 - 未开发拖拽画布、卡片实例新增、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
+
+## 第 8 次开发：第一阶段第 6 步大屏编辑器空画布与组件模板库入口
+
+### 本次目标
+
+- 开发大屏编辑器基础骨架。
+- 本次只实现编辑器页面、草稿加载、空画布展示、启用组件模板库入口、基础属性面板和草稿保存。
+- 本次不开发真实拖拽、卡片实例新增、卡片 SQL 预览、发布版本、浏览态大屏、真实 GIS/三维/G6、AI Gateway、完整权限中心或 License Center。
+
+### 实际修改
+
+- 新增前端 `/dashboards/:id/editor` 编辑器页面。
+- 大屏管理页面新增“进入编辑器”入口。
+- 编辑器加载大屏草稿，并根据 `draft.configJson.canvas.width`、`height`、`background` 展示空画布。
+- 编辑器左侧加载已启用组件模板列表，展示模板名称、分类和渲染引擎。
+- 编辑器中间展示空画布、网格背景、画布尺寸、卡片数量和空状态提示。
+- 编辑器右侧提供画布宽度、高度、背景色、主题色和 AI Context 预留开关。
+- 编辑器保存草稿时继续复用 `PUT /api/platform/dashboards/{id}/draft`，只更新 `dashboard_draft`。
+- 顶部预留“预览”“发布”按钮，但置为不可用并显示后续阶段开放。
+- 本次没有新增后端接口，没有新增数据库迁移脚本。
+
+### 复用接口
+
+- `GET /api/platform/dashboards`
+- `GET /api/platform/dashboards/{id}/draft`
+- `PUT /api/platform/dashboards/{id}/draft`
+- `GET /api/platform/component-templates?status=ENABLED`
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端使用本地 `water_dashboard` 库启动成功，Flyway 当前保持 `V6`，没有新增迁移。
+- `GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+- 前端 `/data-sources` 返回 HTTP 200，数据源配置中心未被破坏。
+- 前端 `/component-templates` 返回 HTTP 200，组件模板管理未被破坏。
+- 前端 `/dashboards` 返回 HTTP 200，大屏管理未被破坏。
+- 前端 `/dashboards/{id}/editor` 返回 HTTP 200。
+- 已验证编辑器依赖接口可加载大屏草稿。
+- 已验证左侧可读取已启用组件模板列表。
+- 已验证保存草稿后 `revision` 从 2 递增到 3。
+- 已验证保存后画布宽度、高度、背景色、主题色更新成功。
+- 已验证 `cards` 仍为空数组，没有创建卡片实例。
+- 已验证 `platform.dashboard_version` 未写入记录，草稿保存未影响发布版本设计。
+- 已验证 `platform.audit_log` 包含 `DASHBOARD_DRAFT_SAVE` 记录。
+- 接口响应包含 `traceId`，未返回完整异常堆栈。
+
+### 遗留风险
+
+- 编辑器当前只展示空画布和模板库入口，尚未实现真实拖拽、卡片实例创建、布局保存和属性编辑。
+- 组件模板库当前只做列表展示，不执行模板放置和运行时渲染。
+- AI Context 当前只是草稿字段预留，不调用 AI Gateway，不生成发布 Manifest。
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+- `/api/health/error-demo` 仍仅用于骨架异常验证，后续应移除或限制在非生产环境。
+
+### 未开发能力
+
+- 未开发真实拖拽、卡片实例新增、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
