@@ -49,7 +49,7 @@ public class DataSourceService {
 
     public DataSourceListResponse list(String name, String type, String status, Boolean enabled) {
         StringBuilder sql = new StringBuilder("""
-                SELECT ds.id, ds.name, ds.type, ds.status, ds.config_json::text AS config_json,
+                SELECT ds.id, ds.code, ds.name, ds.type, ds.environment, ds.status, ds.config_json::text AS config_json,
                        ds.created_at, ds.updated_at, last_health.last_test_time
                 FROM platform.data_source ds
                 LEFT JOIN (
@@ -243,14 +243,16 @@ public class DataSourceService {
 
     private InternalDataSource loadInternal(UUID id) {
         return jdbcTemplate.queryForObject("""
-                SELECT id, name, type, status, config_json::text AS config_json, secret_ref,
+                SELECT id, code, name, type, environment, status, config_json::text AS config_json, secret_ref,
                        created_at, updated_at
                 FROM platform.data_source
                 WHERE id = :id
                 """, new MapSqlParameterSource("id", id), (rs, rowNum) -> new InternalDataSource(
                 rs.getObject("id", UUID.class),
+                rs.getString("code"),
                 rs.getString("name"),
                 rs.getString("type"),
+                rs.getString("environment"),
                 rs.getString("status"),
                 readJson(rs.getString("config_json")),
                 rs.getString("secret_ref"),
@@ -264,8 +266,10 @@ public class DataSourceService {
         String status = rs.getString("status");
         return new DataSourceResponse(
                 rs.getObject("id", UUID.class),
+                rs.getString("code"),
                 rs.getString("name"),
                 rs.getString("type"),
+                rs.getString("environment"),
                 stringConfig(config, "host"),
                 intConfig(config, "port"),
                 stringConfig(config, "database"),
@@ -393,8 +397,10 @@ public class DataSourceService {
 
     private record InternalDataSource(
             UUID id,
+            String code,
             String name,
             String type,
+            String environment,
             String status,
             Map<String, Object> config,
             String secretRef,
@@ -405,8 +411,10 @@ public class DataSourceService {
         private DataSourceResponse toResponse() {
             return new DataSourceResponse(
                     id,
+                    code,
                     name,
                     type,
+                    environment,
                     string(config, "host"),
                     integer(config, "port"),
                     string(config, "database"),

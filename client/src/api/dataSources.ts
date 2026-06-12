@@ -2,8 +2,10 @@ import request, { type ApiResponse } from './request'
 
 export interface DataSourceItem {
   id: string
+  code?: string
   name: string
   type: string
+  environment?: string
   host: string
   port: number
   database: string

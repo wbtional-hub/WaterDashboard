@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import {
@@ -15,6 +15,7 @@ import {
   type DashboardItem,
 } from '@/api/dashboards'
 import { listComponentTemplates, type ComponentTemplateItem } from '@/api/componentTemplates'
+import { listDataSources, type DataSourceItem } from '@/api/dataSources'
 import type { RequestError } from '@/api/request'
 
 interface DraftConfig {
@@ -40,14 +41,30 @@ interface DraftConfig {
   }
 }
 
+interface CardDataBinding {
+  enabled: boolean
+  dataSourceId: string
+  queryType: 'SQL'
+  sql: string
+  params: Record<string, unknown>
+  fieldMapping: Record<string, unknown>
+}
+
+interface CardRefresh {
+  enabled: boolean
+  intervalSeconds: number
+}
+
 const route = useRoute()
 const dashboardId = computed(() => String(route.params.id || ''))
 
 const dashboard = ref<DashboardItem | null>(null)
 const draft = ref<DashboardDraft | null>(null)
 const templates = ref<ComponentTemplateItem[]>([])
+const dataSources = ref<DataSourceItem[]>([])
 const cards = ref<DashboardCardItem[]>([])
 const selectedCardId = ref('')
+const fieldMappingText = ref('{}')
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
@@ -90,22 +107,31 @@ const canvasPreviewStyle = computed(() => {
 })
 
 const selectedCard = computed(() => cards.value.find((card) => card.cardId === selectedCardId.value) || null)
+const enabledDataSources = computed(() => dataSources.value.filter((item) => item.enabled && item.status === 'ENABLED'))
+const selectedDataBinding = computed<CardDataBinding>(() => ensureSelectedCardDataBinding())
+const selectedRefresh = computed<CardRefresh>(() => ensureSelectedCardRefresh())
+const selectedBoundDataSource = computed(() => {
+  const dataSourceId = selectedDataBinding.value.dataSourceId
+  return dataSources.value.find((item) => item.id === dataSourceId) || null
+})
 
 async function loadEditor() {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const [dashboardResponse, draftResponse, templateResponse, cardResponse] = await Promise.all([
+    const [dashboardResponse, draftResponse, templateResponse, cardResponse, dataSourceResponse] = await Promise.all([
       listDashboards({}),
       getDashboardDraft(dashboardId.value),
       listComponentTemplates({ status: 'ENABLED' }),
       listDashboardCards(dashboardId.value),
+      listDataSources({}),
     ])
     dashboard.value = dashboardResponse.data.items.find((item) => item.id === dashboardId.value) || null
     draft.value = draftResponse.data
     templates.value = templateResponse.data.items
     cards.value = cardResponse.data
+    dataSources.value = dataSourceResponse.data.items
     applyDraftConfig(draftResponse.data.configJson)
   } catch (error) {
     showError(error)
@@ -178,6 +204,16 @@ async function saveSelectedCard() {
   successMessage.value = ''
   try {
     const card = selectedCard.value
+    const fieldMapping = parseFieldMapping()
+    const dataBinding = ensureSelectedCardDataBinding()
+    dataBinding.fieldMapping = fieldMapping
+    validateCardDataBinding(dataBinding)
+    const refresh = ensureSelectedCardRefresh()
+    card.configJson = {
+      ...(card.configJson || {}),
+      dataBinding,
+      refresh,
+    }
     await updateDashboardCard(dashboardId.value, card.cardId, {
       cardCode: card.cardCode,
       title: card.title,
@@ -260,6 +296,93 @@ function normalizeDraft(rawConfig: Record<string, unknown>): DraftConfig {
   }
 }
 
+function ensureSelectedCardDataBinding(): CardDataBinding {
+  const card = selectedCard.value
+  const config = ensureSelectedCardConfig()
+  const source = ((config.dataBinding || {}) as Partial<CardDataBinding>) || {}
+  const binding: CardDataBinding = {
+    enabled: Boolean(source.enabled),
+    dataSourceId: typeof source.dataSourceId === 'string' ? source.dataSourceId : '',
+    queryType: 'SQL',
+    sql: typeof source.sql === 'string' ? source.sql : '',
+    params: isPlainObject(source.params) ? source.params : {},
+    fieldMapping: isPlainObject(source.fieldMapping) ? source.fieldMapping : {},
+  }
+  if (card) {
+    config.dataBinding = binding as unknown as Record<string, unknown>
+  }
+  return binding
+}
+
+function ensureSelectedCardRefresh(): CardRefresh {
+  const config = ensureSelectedCardConfig()
+  const source = ((config.refresh || {}) as Partial<CardRefresh>) || {}
+  const refresh: CardRefresh = {
+    enabled: Boolean(source.enabled),
+    intervalSeconds: toPositiveNumber(source.intervalSeconds, 60),
+  }
+  config.refresh = refresh as unknown as Record<string, unknown>
+  return refresh
+}
+
+function ensureSelectedCardConfig() {
+  const card = selectedCard.value
+  if (!card) {
+    return {}
+  }
+  if (!card.configJson || typeof card.configJson !== 'object') {
+    card.configJson = {}
+  }
+  return card.configJson as Record<string, unknown>
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function parseFieldMapping() {
+  try {
+    const parsed = JSON.parse(fieldMappingText.value || '{}') as unknown
+    if (!isPlainObject(parsed)) {
+      throw new Error('字段映射必须是 JSON 对象')
+    }
+    return parsed
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : '字段映射 JSON 格式不正确')
+  }
+}
+
+function validateCardDataBinding(binding: CardDataBinding) {
+  const sql = binding.sql.trim()
+  binding.sql = sql
+  if (!binding.enabled && !sql) {
+    return
+  }
+  if (binding.enabled && !binding.dataSourceId) {
+    throw new Error('启用数据绑定时必须选择数据源')
+  }
+  if (binding.dataSourceId) {
+    const dataSource = dataSources.value.find((item) => item.id === binding.dataSourceId)
+    if (!dataSource || !dataSource.enabled || dataSource.status !== 'ENABLED') {
+      throw new Error('当前绑定的数据源不可用，请选择已启用的数据源')
+    }
+  }
+  if (!sql) {
+    throw new Error('SQL 不能为空')
+  }
+  const upper = sql.toUpperCase()
+  if (!(upper.startsWith('SELECT') || upper.startsWith('WITH'))) {
+    throw new Error('卡片 SQL 只允许以 SELECT 或 WITH 开头')
+  }
+  if (sql.includes(';')) {
+    throw new Error('卡片 SQL 不允许包含分号或多语句')
+  }
+  const dangerousKeywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'EXECUTE', 'CALL']
+  if (dangerousKeywords.some((keyword) => new RegExp(`\\b${keyword}\\b`, 'i').test(sql))) {
+    throw new Error('卡片 SQL 包含不允许的高风险关键字')
+  }
+}
+
 function toPositiveNumber(value: unknown, fallback: number) {
   const numeric = Number(value)
   return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback
@@ -288,6 +411,17 @@ function renderEngineLabel(value: string) {
   }
   return labels[value] || value
 }
+
+function syncFieldMappingText() {
+  if (!selectedCard.value) {
+    fieldMappingText.value = '{}'
+    return
+  }
+  fieldMappingText.value = JSON.stringify(ensureSelectedCardDataBinding().fieldMapping || {}, null, 2)
+}
+
+watch(selectedCardId, syncFieldMappingText)
+watch(cards, syncFieldMappingText)
 
 onMounted(loadEditor)
 </script>
@@ -389,35 +523,90 @@ onMounted(loadEditor)
 
         <template v-else>
           <h3>卡片属性</h3>
-          <label>
-            标题
-            <input v-model.trim="selectedCard.title" />
-          </label>
-          <label>
-            X
-            <input v-model.number="selectedCard.x" type="number" min="0" />
-          </label>
-          <label>
-            Y
-            <input v-model.number="selectedCard.y" type="number" min="0" />
-          </label>
-          <label>
-            宽度
-            <input v-model.number="selectedCard.width" type="number" min="80" />
-          </label>
-          <label>
-            高度
-            <input v-model.number="selectedCard.height" type="number" min="60" />
-          </label>
-          <label class="checkbox-field">
-            <input v-model="selectedCard.enabled" type="checkbox" />
-            启用卡片
-          </label>
-          <label class="checkbox-field">
-            <input v-model="selectedCard.aiEnabled" type="checkbox" />
-            AI 启用预留
-          </label>
-          <button type="button" class="primary-button" :disabled="saving" @click="saveSelectedCard">保存卡片属性</button>
+          <div class="property-group">
+            <h4>基础配置</h4>
+            <label>
+              卡片标题
+              <input v-model.trim="selectedCard.title" />
+            </label>
+            <label class="checkbox-field">
+              <input v-model="selectedCard.enabled" type="checkbox" />
+              启用卡片
+            </label>
+            <label class="checkbox-field">
+              <input v-model="selectedCard.aiEnabled" type="checkbox" />
+              AI 启用预留
+            </label>
+          </div>
+
+          <div class="property-group">
+            <h4>布局配置</h4>
+            <label>
+              X
+              <input v-model.number="selectedCard.x" type="number" min="0" />
+            </label>
+            <label>
+              Y
+              <input v-model.number="selectedCard.y" type="number" min="0" />
+            </label>
+            <label>
+              宽度
+              <input v-model.number="selectedCard.width" type="number" min="80" />
+            </label>
+            <label>
+              高度
+              <input v-model.number="selectedCard.height" type="number" min="60" />
+            </label>
+          </div>
+
+          <div class="property-group">
+            <h4>数据配置</h4>
+            <label class="checkbox-field">
+              <input v-model="selectedDataBinding.enabled" type="checkbox" />
+              启用数据绑定
+            </label>
+            <label>
+              数据源
+              <select v-model="selectedDataBinding.dataSourceId">
+                <option value="">请选择已启用数据源</option>
+                <option v-for="dataSource in enabledDataSources" :key="dataSource.id" :value="dataSource.id">
+                  {{ dataSource.name }} / {{ dataSource.code || '-' }} / {{ dataSource.type }} /
+                  {{ dataSource.environment || '-' }} / {{ dataSource.status }}
+                </option>
+              </select>
+            </label>
+            <p v-if="selectedDataBinding.dataSourceId && (!selectedBoundDataSource || !selectedBoundDataSource.enabled)" class="message error-message compact-message">
+              当前卡片已绑定的数据源不可用，请重新选择已启用数据源后保存。
+            </p>
+            <label>
+              SELECT SQL
+              <textarea
+                v-model.trim="selectedDataBinding.sql"
+                rows="8"
+                placeholder="SELECT ...，本阶段仅保存配置，不执行 SQL"
+              />
+            </label>
+            <label>
+              字段映射 JSON 预留
+              <textarea v-model="fieldMappingText" rows="6" placeholder='{"value":"total"}' />
+            </label>
+            <button type="button" class="secondary-button" disabled>SQL 预览：下一阶段开放</button>
+            <p class="muted-line">当前不执行 SQL，不连接外部业务库，不做字段自动识别。</p>
+          </div>
+
+          <div class="property-group">
+            <h4>刷新配置</h4>
+            <label class="checkbox-field">
+              <input v-model="selectedRefresh.enabled" type="checkbox" />
+              自动刷新
+            </label>
+            <label>
+              刷新间隔秒数
+              <input v-model.number="selectedRefresh.intervalSeconds" type="number" min="5" max="86400" />
+            </label>
+          </div>
+
+          <button type="button" class="primary-button" :disabled="saving" @click="saveSelectedCard">保存卡片配置</button>
           <button type="button" class="danger-button" :disabled="saving" @click="removeSelectedCard">删除卡片</button>
           <button type="button" class="secondary-button" @click="selectedCardId = ''">返回画布属性</button>
         </template>

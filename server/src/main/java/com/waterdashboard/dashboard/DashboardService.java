@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,8 @@ public class DashboardService {
     private static final Pattern DASHBOARD_CODE_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_-]{1,63}$");
     private static final List<String> DANGEROUS_TEXT = List.of(
             "<script", "</script", "javascript:", "vbscript:", "onerror=", "onload=", "onclick=");
+    private static final List<String> DANGEROUS_SQL_KEYWORDS = List.of(
+            "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE", "EXECUTE", "CALL");
     private static final List<String> SENSITIVE_CONFIG_KEYS = List.of(
             "password", "passwd", "pwd", "token", "secret", "connectionstring", "connection_string",
             "privatekey", "private_key", "accesskey", "access_key");
@@ -367,8 +370,8 @@ public class DashboardService {
                 : objectMapper.createObjectNode();
         layout.put("x", defaultInt(request.x(), intOrDefault(layout.get("x"), 40)));
         layout.put("y", defaultInt(request.y(), intOrDefault(layout.get("y"), 40)));
-        layout.put("width", defaultInt(request.width(), defaultCardWidth(template)));
-        layout.put("height", defaultInt(request.height(), defaultCardHeight(template)));
+        layout.put("width", defaultInt(request.width(), intOrDefault(layout.get("width"), defaultCardWidth(template))));
+        layout.put("height", defaultInt(request.height(), intOrDefault(layout.get("height"), defaultCardHeight(template))));
         base.set("layout", layout);
 
         base.put("enabled", request.enabled() == null ? booleanOrDefault(base.get("enabled"), true) : request.enabled());
@@ -377,7 +380,9 @@ public class DashboardService {
             ObjectNode dataBinding = objectMapper.createObjectNode();
             dataBinding.put("enabled", false);
             dataBinding.putNull("dataSourceId");
+            dataBinding.put("queryType", "SQL");
             dataBinding.put("sql", "");
+            dataBinding.set("params", objectMapper.createObjectNode());
             dataBinding.set("fieldMapping", objectMapper.createObjectNode());
             base.set("dataBinding", dataBinding);
         }
@@ -395,7 +400,93 @@ public class DashboardService {
                 base.set(entry.getKey(), entry.getValue());
             }
         });
+        normalizeAndValidateCardRuntimeConfig(base);
         return base;
+    }
+
+    private void normalizeAndValidateCardRuntimeConfig(ObjectNode base) {
+        ObjectNode dataBinding = base.has("dataBinding") && base.get("dataBinding").isObject()
+                ? (ObjectNode) base.get("dataBinding")
+                : objectMapper.createObjectNode();
+        boolean bindingEnabled = booleanOrDefault(dataBinding.get("enabled"), false);
+        dataBinding.put("enabled", bindingEnabled);
+        dataBinding.put("queryType", "SQL");
+        if (!dataBinding.has("params") || !dataBinding.get("params").isObject()) {
+            dataBinding.set("params", objectMapper.createObjectNode());
+        }
+        if (!dataBinding.has("fieldMapping") || !dataBinding.get("fieldMapping").isObject()) {
+            dataBinding.set("fieldMapping", objectMapper.createObjectNode());
+        }
+        String dataSourceId = textOrDefault(dataBinding.get("dataSourceId"), "");
+        String sql = textOrDefault(dataBinding.get("sql"), "").trim();
+        dataBinding.put("sql", sql);
+        if (bindingEnabled) {
+            if (!StringUtils.hasText(dataSourceId)) {
+                throw new IllegalArgumentException("启用数据绑定时必须选择数据源");
+            }
+            validateEnabledDataSource(dataSourceId);
+            validateConfiguredSql(sql);
+        } else {
+            if (StringUtils.hasText(dataSourceId)) {
+                validateEnabledDataSource(dataSourceId);
+            }
+            if (StringUtils.hasText(sql)) {
+                validateConfiguredSql(sql);
+            }
+        }
+        base.set("dataBinding", dataBinding);
+
+        ObjectNode refresh = base.has("refresh") && base.get("refresh").isObject()
+                ? (ObjectNode) base.get("refresh")
+                : objectMapper.createObjectNode();
+        refresh.put("enabled", booleanOrDefault(refresh.get("enabled"), false));
+        int intervalSeconds = intOrDefault(refresh.get("intervalSeconds"), 60);
+        if (intervalSeconds < 5 || intervalSeconds > 86400) {
+            throw new IllegalArgumentException("刷新间隔必须在 5 到 86400 秒之间");
+        }
+        refresh.put("intervalSeconds", intervalSeconds);
+        base.set("refresh", refresh);
+    }
+
+    private void validateEnabledDataSource(String dataSourceId) {
+        UUID id;
+        try {
+            id = UUID.fromString(dataSourceId);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("数据源标识不合法");
+        }
+        String status;
+        try {
+            status = jdbcTemplate.queryForObject("""
+                    SELECT status
+                    FROM platform.data_source
+                    WHERE id = :id
+                    """, new MapSqlParameterSource("id", id), String.class);
+        } catch (EmptyResultDataAccessException ex) {
+            throw new IllegalArgumentException("数据源不存在或不可用");
+        }
+        if (!"ENABLED".equals(status)) {
+            throw new IllegalArgumentException("数据源不可用，请选择已启用的数据源");
+        }
+    }
+
+    private void validateConfiguredSql(String sql) {
+        if (!StringUtils.hasText(sql)) {
+            throw new IllegalArgumentException("SQL 不能为空");
+        }
+        String trimmed = sql.trim();
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (!(upper.startsWith("SELECT") || upper.startsWith("WITH"))) {
+            throw new IllegalArgumentException("卡片 SQL 只允许 SELECT 或 WITH 查询");
+        }
+        if (trimmed.contains(";")) {
+            throw new IllegalArgumentException("卡片 SQL 不允许保存多语句");
+        }
+        for (String keyword : DANGEROUS_SQL_KEYWORDS) {
+            if (Pattern.compile("\\b" + keyword + "\\b", Pattern.CASE_INSENSITIVE).matcher(trimmed).find()) {
+                throw new IllegalArgumentException("卡片 SQL 包含不允许的高风险关键字");
+            }
+        }
     }
 
     private void syncDraftCard(UUID dashboardId, ObjectNode cardConfig, boolean upsert) {

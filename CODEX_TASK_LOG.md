@@ -460,3 +460,104 @@
 ### 未开发能力
 
 - 未开发真实拖拽画布、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
+
+## 第 10 次工作：数据库迁移脚本检查与 V7 执行验证
+
+### 本次目标
+
+- 本次不开发新功能，只检查并验证 `V7__normalize_data_source_secret_check.sql`。
+- 确认 `V7` 修复 DbVisualizer 对 PostgreSQL JSONB `?|` 操作符的参数误识别问题。
+- 确认 `V1` 至 `V6` 历史迁移脚本不被修改，避免 Flyway checksum 不一致。
+
+### 检查结论
+
+- `V7` 已使用 `jsonb_exists_any(config_json, ARRAY[...]::text[])` 替代 `config_json ?| ARRAY[...]`。
+- `V7` 不包含真实密码、Token、连接串或密钥。
+- `V7` 保留并强化了 `ck_data_source_config_no_plain_secret` 的安全意图，继续禁止 `data_source.config_json` 保存 `password`、`token`、`secret`、`connectionString`、`connection_string`、`privateKey`、`private_key` 等敏感字段。
+- 未修改已执行成功的 `V1` 至 `V6` 历史迁移脚本。
+
+### 执行与数据库验证
+
+- 通过 Spring Boot 启动触发 Flyway 校验，日志显示 `Successfully validated 8 migrations`。
+- Flyway 日志显示当前 `platform` schema 版本为 `7`，并提示 `Schema "platform" is up to date. No migration necessary.`。
+- `platform.flyway_schema_history` 查询确认 `V1` 至 `V7` 均为 `success=true`。
+- `platform.data_source` 查询确认约束 `ck_data_source_config_no_plain_secret` 存在。
+- 约束定义已为 `CHECK ((NOT jsonb_exists_any(config_json, ARRAY[...])))`。
+- 执行敏感字段负向测试：向 `platform.data_source.config_json` 插入 `{"password":"123456"}` 被检查约束拒绝。
+- 负向测试后确认 `code='test_secret_check'` 的测试数据未残留。
+- 查询确认已有数据源、组件模板和大屏草稿数据仍存在，未受影响。
+
+### 回归验证
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端启动后 `GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+
+### 遗留风险
+
+- 当前 Flyway 版本提示 PostgreSQL 18.3 新于其已测试支持版本，后续生产环境建议评估 Flyway 版本升级。
+- 本次负向测试使用数据库约束验证安全底线；后续 SQL 配置和数据绑定仍必须继续做应用层敏感字段校验、脱敏日志和审计。
+
+### 下一步建议
+
+- 第一阶段第 7 步卡片实例基础添加已完成并验证。
+- 下一步可进入第一阶段第 8 步：卡片数据源选择与 SQL 配置骨架；该步骤仍不得执行 SQL，不得开发 SQL 预览。
+
+## 第 11 次开发：第一阶段第 8 步卡片数据源选择与 SQL 配置骨架
+
+### 本次目标
+
+- 在大屏编辑器中为已选中卡片增加数据配置和刷新配置。
+- 本次只保存卡片数据绑定配置，不执行 SQL，不做 SQL 预览，不做字段自动识别，不做数据查询。
+- 保存范围仅限 `dashboard_card.config_json` 和 `dashboard_draft.config_json.cards`，不写入 `dashboard_version`。
+
+### 实际修改
+
+- 后端复用 `PUT /api/platform/dashboards/{id}/draft/cards/{cardId}`，小范围增强卡片配置保存能力。
+- 卡片配置支持 `dataBinding.enabled`、`dataBinding.dataSourceId`、`dataBinding.queryType`、`dataBinding.sql`、`dataBinding.params`、`dataBinding.fieldMapping`。
+- 卡片配置支持 `refresh.enabled` 和 `refresh.intervalSeconds`。
+- 后端增加配置级 SQL 基础校验：非空 SQL 必须以 `SELECT` 或 `WITH` 开头，禁止分号多语句，禁止 `INSERT`、`UPDATE`、`DELETE`、`DROP`、`ALTER`、`TRUNCATE`、`CREATE`、`GRANT`、`REVOKE`、`EXECUTE`、`CALL`。
+- 后端保存时校验数据源必须存在且状态为 `ENABLED`。
+- 后端继续拦截草稿或卡片 JSON 中的密码、Token、连接串、密钥等敏感字段名。
+- 前端编辑器加载数据源列表，并在选中卡片后展示基础配置、布局配置、数据配置、刷新配置分组。
+- 数据源列表响应补充返回非敏感字段 `code` 和 `environment`，便于编辑器展示名称、编码、类型、环境、状态。
+- 前端数据源下拉框只提供已启用数据源，不展示 password、secretRef、JDBC URL、Token 或连接串。
+- 前端支持编辑字段映射 JSON 预留对象，但不做自动识别。
+- 前端 SQL 预览按钮仅占位禁用，显示下一阶段开放。
+
+### 接口变化
+
+- 未新增接口。
+- 调整既有接口：`PUT /api/platform/dashboards/{id}/draft/cards/{cardId}` 支持保存 `dataBinding`、`fieldMapping` 和 `refresh` 配置。
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端启动成功，`GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+- 已验证 `GET /api/platform/data-sources` 返回 `code`、`name`、`type`、`environment`、`status`、`enabled` 等非敏感字段，未返回密码、密钥引用或连接串。
+- 前端 `/`、`/data-sources`、`/component-templates`、`/dashboards`、`/dashboards/{id}/editor` 均返回 HTTP 200。
+- 已验证选中卡片后可保存已启用数据源和 `SELECT 1 AS value` SQL 配置。
+- 已验证 `dataBinding.enabled`、`fieldMapping`、`refresh.enabled`、`refresh.intervalSeconds` 可保存。
+- 已验证危险 SQL `DROP TABLE ...` 被拒绝，返回 HTTP 400。
+- 已验证多语句 SQL `SELECT 1; SELECT 2` 被拒绝，返回 HTTP 400。
+- 已验证 `dashboard_card.config_json` 已更新。
+- 已验证 `dashboard_draft.config_json.cards` 中对应卡片同步更新。
+- 已验证 `dashboard_draft.revision` 从 11 递增到 12。
+- 已验证 `dashboard_version` 未写入记录。
+- 已验证 `platform.audit_log` 包含 `DASHBOARD_CARD_UPDATE` 记录。
+- 接口响应包含 `traceId`，且验证响应未包含真实密码、`secretRef`、JDBC URL 或连接串。
+- 仓库扫描未发现真实数据库密码、Token、密钥或真实连接串。
+
+### 遗留风险
+
+- 本次 SQL 校验只是配置保存阶段的基础红线校验，不能替代后续 SQL 解析器级校验。
+- 当前未执行 SQL，因此尚未产生 `card_query_log`，也未验证只读账号、限行、超时和 SQL 哈希审计。
+- 字段映射当前只保存 JSON 对象，不做字段自动识别或契约校验。
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+
+### 未开发能力
+
+- 未开发 SQL 预览、数据查询、字段自动识别、发布体检、不可变版本发布、浏览页运行时、真实图表/GIS/三维/G6 渲染、AI Gateway、完整权限中心和 License Center。

@@ -605,6 +605,41 @@ textarea {
   font-size: 1.4rem;
 }
 
+.property-group {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(129, 178, 205, 0.14);
+}
+
+.property-group h4 {
+  margin: 0;
+  color: #e8f7ff;
+  font-size: 0.95rem;
+}
+
+.property-panel textarea,
+.property-panel select {
+  width: 100%;
+  border: 1px solid rgba(129, 178, 205, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: #e8f7ff;
+  background: rgba(4, 18, 31, 0.86);
+}
+
+.property-panel textarea {
+  min-height: 7rem;
+  resize: vertical;
+  font-family: Consolas, 'Courier New', monospace;
+  line-height: 1.45;
+}
+
+.compact-message {
+  margin: 0;
+  padding: 0.65rem;
+}
+
 @media (max-width: 760px) {
   .app-header,
   .page-heading,

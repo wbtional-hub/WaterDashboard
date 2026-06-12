@@ -5,8 +5,10 @@ import java.util.UUID;
 
 public record DataSourceResponse(
         UUID id,
+        String code,
         String name,
         String type,
+        String environment,
         String host,
         Integer port,
         String database,
