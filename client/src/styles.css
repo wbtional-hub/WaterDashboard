@@ -289,11 +289,21 @@ textarea {
   background: rgba(120, 43, 54, 0.38);
 }
 
+.success-message {
+  color: #d9ffed;
+  background: rgba(73, 212, 157, 0.12);
+}
+
 .data-source-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(20rem, 0.55fr);
   gap: 1.25rem;
   align-items: start;
+}
+
+.form-stack {
+  display: grid;
+  gap: 1rem;
 }
 
 .table-panel {
@@ -415,6 +425,18 @@ textarea {
 .test-fail {
   color: #ffd3d3;
   background: rgba(120, 43, 54, 0.38);
+}
+
+.version-card {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgba(129, 178, 205, 0.12);
+  color: #91aabd;
+}
+
+.version-card strong {
+  color: #e8f7ff;
 }
 
 @media (max-width: 760px) {

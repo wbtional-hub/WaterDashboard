@@ -2,20 +2,22 @@
 
 ## 下一次任务
 
-第一阶段第 4 步：开发组件模板管理基础能力。
+第一阶段第 5 步：开发大屏管理与草稿基础能力。
 
 下一次开发前必须执行 `AGENTS.md` 中规定的强制读取和强制输出流程。
 
 ## 下一步任务范围
 
-1. 基于 `platform.component_template` 和 `platform.component_template_version` 建立组件模板后端基础接口。
-2. 支持组件模板列表、详情、新增、编辑、启用、停用。
-3. 支持创建模板版本，保存 `data_contract_json`、`default_config_json`、`field_mapping_schema_json`、`checksum` 等字段。
-4. 第一阶段优先支持普通图表模板，渲染引擎使用 `ECHARTS`，只做模板元数据和契约管理。
-5. 前端新增组件模板管理基础页面，支持列表、筛选、新增、编辑、版本信息查看。
-6. 预留 `license_scope`、`signature`、`checksum`，但不开发完整 License Center。
-7. 所有接口继续返回 `success`、`code`、`message`、`data`、`traceId`。
-8. 操作写入 `platform.audit_log`，异常继续脱敏并可追踪。
+1. 基于 `platform.dashboard` 和 `platform.dashboard_draft` 建立大屏管理后端基础接口。
+2. 支持大屏列表、详情、新增、编辑基础信息。
+3. 支持创建和读取大屏草稿。
+4. 支持保存草稿基础配置 JSON，但只保存大屏级元数据和空画布配置。
+5. 草稿配置必须可序列化、可保存、可版本化预留。
+6. 前端新增大屏管理基础页面，支持列表、新增、编辑、进入草稿详情。
+7. 预留后续大屏编辑器入口，但本步不做拖拽画布。
+8. 操作写入 `platform.audit_log`。
+9. 所有接口继续返回 `success`、`code`、`message`、`data`、`traceId`。
+10. 保持数据源配置中心和组件模板管理能力不受影响。
 
 ## 下一步禁止事项
 
@@ -29,5 +31,6 @@
 8. 不要在平台配置库中写死某一家水务系统的数据结构。
 9. 不要通过关闭 PostGIS 校验或手工绕过 Flyway 来伪造迁移成功。
 10. 不要开发卡片 SQL 预览执行功能。
-11. 不要开发大屏编辑器、AI Gateway、GIS、三维、G6、完整权限中心或 License Center。
-12. 不要把模板配置写死成不可替换的水务业务页面。
+11. 不要开发拖拽画布、AI Gateway、GIS、三维、G6、完整权限中心或 License Center。
+12. 不要把大屏配置写死成某一家水务系统的页面。
+13. 不要修改已发布版本快照表的不可变约束。

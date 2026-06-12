@@ -218,3 +218,65 @@
 ### 未开发能力
 
 - 未开发组件模板管理、大屏编辑器、卡片 SQL 预览执行、字段映射、发布体检、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
+
+## 第 6 次开发：第一阶段第 4 步组件模板管理基础能力
+
+### 本次目标
+
+- 开发组件模板管理最小闭环能力。
+- 本次只实现组件模板元数据、启停、版本契约和前端管理页面。
+- 本次不开发大屏编辑器、拖拽画布、卡片 SQL 预览、真实 OpenLayers 地图卡、真实 Babylon.js 三维卡、真实 G6 拓扑卡、AI Gateway、完整权限中心或 License Center。
+
+### 实际修改
+
+- 新增后端组件模板模块 `componenttemplate`。
+- 新增组件模板基础接口，支持列表、详情、新增、编辑、启用、停用。
+- 新增组件模板版本接口，支持创建版本、版本列表和版本详情。
+- 支持 `dataContractJson`、`defaultConfigJson`、`fieldMappingSchemaJson` 三类 JSON 契约。
+- 支持渲染引擎类型：`TEXT_CARD`、`ECHARTS_LINE`、`ECHARTS_BAR`、`TABLE_LIST`、`OPENLAYERS_MAP`、`BABYLON_SCENE`、`G6_TOPOLOGY`。
+- OpenLayers、Babylon.js、G6 当前只做模板类型预留，没有引入真实渲染能力。
+- 支持 `licenseScope`、`signature`、`checksum` 预留字段。
+- 新增 `V5__extend_component_template_metadata.sql`，为 `platform.component_template` 补充 `description`、最小尺寸、默认尺寸和渲染引擎索引。
+- 新增前端 `/component-templates` 页面，支持列表筛选、新增、编辑、启用、停用、创建版本、JSON 格式化和基础校验。
+- 所有新增、修改、启用、停用、创建版本操作写入 `platform.audit_log`。
+- 所有接口继续返回 `success`、`code`、`message`、`data`、`traceId`。
+
+### 新增接口
+
+- `GET /api/platform/component-templates`
+- `GET /api/platform/component-templates/{id}`
+- `POST /api/platform/component-templates`
+- `PUT /api/platform/component-templates/{id}`
+- `PATCH /api/platform/component-templates/{id}/enable`
+- `PATCH /api/platform/component-templates/{id}/disable`
+- `POST /api/platform/component-templates/{id}/versions`
+- `GET /api/platform/component-templates/{id}/versions`
+- `GET /api/platform/component-templates/{id}/versions/{versionId}`
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- 首次执行 `mvn package -DskipTests` 时因旧后端 JAR 正在运行被 Windows 锁定而失败；停止旧后端进程后重新执行成功。
+- `mvn package -DskipTests` 最终通过。
+- `npm run build` 通过。
+- 后端使用本地 `water_dashboard` 库启动成功，Flyway 已执行到 `V5`。
+- `GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+- `GET /api/platform/data-sources` 仍可正常访问，数据源配置中心未被破坏。
+- 前端 `/data-sources` 返回 HTTP 200。
+- 前端 `/component-templates` 返回 HTTP 200。
+- 已验证组件模板新增、编辑、启用、停用、创建版本、查询详情和查询版本详情。
+- 已验证 `platform.component_template_version` 有版本记录。
+- 已验证 `platform.audit_log` 包含组件模板新增、修改、启用、停用、创建版本记录。
+- 接口响应包含 `traceId`，未返回完整异常堆栈。
+
+### 遗留风险
+
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+- JSON 契约当前做基础合法性和危险脚本片段校验，后续需要按模板类型引入更严格的 JSON Schema 校验。
+- 当前组件模板只管理元数据和契约，不包含真实运行时渲染器。
+- License、签名、校验和仅预留字段，尚未接入 License Center 和组件签名校验。
+- `/api/health/error-demo` 仍仅用于骨架异常验证，后续应移除或限制在非生产环境。
+
+### 未开发能力
+
+- 未开发大屏编辑器、拖拽画布、卡片 SQL 预览执行、字段映射、发布体检、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。

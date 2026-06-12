@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HealthView from '@/pages/HealthView.vue'
 import HomeView from '@/pages/HomeView.vue'
 import DataSourcesView from '@/pages/DataSourcesView.vue'
+import ComponentTemplatesView from '@/pages/ComponentTemplatesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,6 +22,11 @@ const router = createRouter({
       path: '/data-sources',
       name: 'data-sources',
       component: DataSourcesView,
+    },
+    {
+      path: '/component-templates',
+      name: 'component-templates',
+      component: ComponentTemplatesView,
     },
   ],
 })
