@@ -78,6 +78,20 @@ export interface DashboardCardItem {
   updatedAt: string
 }
 
+export interface DashboardCardPreviewColumn {
+  name: string
+  type: string
+}
+
+export interface DashboardCardPreviewResult {
+  columns: DashboardCardPreviewColumn[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  durationMs: number
+  sqlHash: string
+  truncated: boolean
+}
+
 export interface DashboardListParams {
   name?: string
   dashboardCode?: string
@@ -139,5 +153,13 @@ export async function updateDashboardCard(id: string, cardId: string, payload: D
 
 export async function deleteDashboardCard(id: string, cardId: string) {
   const response = await request.delete<ApiResponse<null>>(`/platform/dashboards/${id}/draft/cards/${cardId}`)
+  return response.data
+}
+
+export async function previewDashboardCardQuery(id: string, cardId: string, limit = 20) {
+  const response = await request.post<ApiResponse<DashboardCardPreviewResult>>(
+    `/platform/dashboards/${id}/draft/cards/${cardId}/preview-query`,
+    { limit },
+  )
   return response.data
 }

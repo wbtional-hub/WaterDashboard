@@ -561,3 +561,62 @@
 ### 未开发能力
 
 - 未开发 SQL 预览、数据查询、字段自动识别、发布体检、不可变版本发布、浏览页运行时、真实图表/GIS/三维/G6 渲染、AI Gateway、完整权限中心和 License Center。
+## 第 12 次开发：第一阶段第 9 步卡片 SQL 预览执行器基础能力
+
+### 本次目标
+
+- 开发卡片 SQL 预览执行器基础能力。
+- 本次只允许对已保存的卡片数据绑定配置进行安全预览，不开发字段自动映射、发布版本、浏览态大屏、真实图表渲染、AI Gateway、GIS、三维、G6、完整权限中心或 License Center。
+- SQL 预览必须保留统一响应结构、`traceId`、只读连接、超时、限行、SQL 安全校验、脱敏错误和 `card_query_log` 记录。
+
+### 实际修改
+
+- 新增 `V8__extend_card_query_log_for_preview.sql`，扩展 `platform.card_query_log` 的 `query_type`、`row_count`、`error_message` 字段，并补充 `card_id`、`data_source_id` 索引。
+- 后端引入 JSqlParser，新增 SQL 安全服务，对预览 SQL 执行解析级校验和基础红线校验。
+- 后端新增 `POST /api/platform/dashboards/{dashboardId}/draft/cards/{cardId}/preview-query`。
+- 后端预览执行读取 `dashboard_card.config_json.dataBinding`，只允许启用的数据绑定、启用的数据源和 `SQL` 类型查询。
+- SQL 预览使用数据源配置中的受控连接，设置只读连接、5 秒查询超时和最大返回行数，默认 20 行，最大 100 行。
+- SQL 预览返回列信息、样例行、行数、耗时、`sqlHash` 和 `traceId`，不返回密码、`secret_ref`、JDBC URL、连接串、完整异常堆栈或密钥。
+- SQL 成功、失败、超时、禁用数据绑定、禁用数据源等结果均写入 `platform.card_query_log`。
+- 前端 `/dashboards/:id/editor` 启用 SQL 预览按钮，展示 loading、预览表格、列名、样例行、耗时、行数和 `traceId`，切换卡片时清空旧预览结果。
+- 前端错误提示继续使用友好摘要和 `traceId`，不展示完整 SQL、连接串或堆栈。
+
+### 新增接口
+
+- `POST /api/platform/dashboards/{dashboardId}/draft/cards/{cardId}/preview-query`
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端最新版本在本机备用端口 `18080` 启动成功；当前 `8080` 仍被一个权限较高的旧 Java 进程占用，未强行终止。
+- `GET /api/health` 返回 `databaseStatus=UP`。
+- Flyway 已执行到 `V8`，`platform.flyway_schema_history` 中 `version=8`、`success=true`。
+- 成功预览 `SELECT 1 AS value`，返回 1 列、1 行、`sqlHash` 长度 64，并包含 `traceId`。
+- SQL 预览未递增 `dashboard_draft.revision`，验证中 revision 保持 `19 -> 19`。
+- 危险 SQL `DROP TABLE ...` 被拒绝，返回 `SQL_FORBIDDEN`。
+- 多语句 SQL `SELECT 1; SELECT 2` 被拒绝，返回 `SQL_FORBIDDEN`。
+- 超时 SQL 被 5 秒超时机制拒绝，返回 `SQL_TIMEOUT`。
+- 未启用数据绑定被拒绝，返回 `DATA_BINDING_DISABLED`。
+- 停用数据源被拒绝，返回 `DATA_SOURCE_DISABLED`。
+- `platform.card_query_log` 已记录 `SUCCESS`、`FORBIDDEN`、`TIMEOUT` 等预览结果。
+- `platform.dashboard_version` 未写入记录。
+- `dashboard_card.config_json` 未持久化预览结果列、行、耗时或行数，仅保留配置。
+- 前端 `/`、`/data-sources`、`/component-templates`、`/dashboards`、`/dashboards/{id}/editor` 均返回 HTTP 200。
+- 仓库扫描未发现真实数据库密码、Token、密钥或真实连接串被写入项目文件；扫描排除了 `sn.txt`、构建产物、依赖目录和运行日志。
+
+### 遗留风险
+
+- 当前 SQL 安全层已使用 JSqlParser 加规则校验，但生产级仍需继续增强只读账号隔离、SQL AST 白名单、函数白名单、参数策略、租户权限和字段权限。
+- 当前仅支持 PostgreSQL 类型数据源的 SQL 预览。
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+- 当前前端只展示预览表格，不做字段自动映射、不做图表渲染、不做发布体检。
+- 本机 `8080` 端口仍被旧 Java 进程占用，最新后端验证使用 `18080`。
+
+### 未开发能力
+
+- 未开发字段自动映射。
+- 未开发发布前体检、不可变发布版本、浏览态大屏运行时。
+- 未开发真实 ECharts、OpenLayers、Babylon.js、G6 渲染。
+- 未开发 AI Gateway、完整权限中心和 License Center。

@@ -1,6 +1,8 @@
 package com.waterdashboard.dashboard;
 
 import com.waterdashboard.common.response.ApiResponse;
+import com.waterdashboard.dashboard.dto.DashboardCardPreviewRequest;
+import com.waterdashboard.dashboard.dto.DashboardCardPreviewResponse;
 import com.waterdashboard.dashboard.dto.DashboardCardRequest;
 import com.waterdashboard.dashboard.dto.DashboardCardResponse;
 import com.waterdashboard.dashboard.dto.DashboardDraftRequest;
@@ -26,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final DashboardQueryPreviewService queryPreviewService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(DashboardService dashboardService, DashboardQueryPreviewService queryPreviewService) {
         this.dashboardService = dashboardService;
+        this.queryPreviewService = queryPreviewService;
     }
 
     @GetMapping
@@ -100,5 +104,13 @@ public class DashboardController {
     public ApiResponse<Void> deleteCard(@PathVariable UUID id, @PathVariable UUID cardId) {
         dashboardService.deleteCard(id, cardId);
         return ApiResponse.success(null);
+    }
+
+    @PostMapping("/{id}/draft/cards/{cardId}/preview-query")
+    public ApiResponse<DashboardCardPreviewResponse> previewQuery(
+            @PathVariable UUID id,
+            @PathVariable UUID cardId,
+            @RequestBody(required = false) DashboardCardPreviewRequest request) {
+        return ApiResponse.success(queryPreviewService.preview(id, cardId, request));
     }
 }

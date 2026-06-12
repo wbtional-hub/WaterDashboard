@@ -8,8 +8,10 @@ import {
   getDashboardDraft,
   listDashboardCards,
   listDashboards,
+  previewDashboardCardQuery,
   saveDashboardDraft,
   updateDashboardCard,
+  type DashboardCardPreviewResult,
   type DashboardCardItem,
   type DashboardDraft,
   type DashboardItem,
@@ -65,6 +67,10 @@ const dataSources = ref<DataSourceItem[]>([])
 const cards = ref<DashboardCardItem[]>([])
 const selectedCardId = ref('')
 const fieldMappingText = ref('{}')
+const previewing = ref(false)
+const previewResult = ref<DashboardCardPreviewResult | null>(null)
+const previewError = ref('')
+const previewTraceId = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
@@ -113,6 +119,10 @@ const selectedRefresh = computed<CardRefresh>(() => ensureSelectedCardRefresh())
 const selectedBoundDataSource = computed(() => {
   const dataSourceId = selectedDataBinding.value.dataSourceId
   return dataSources.value.find((item) => item.id === dataSourceId) || null
+})
+const canPreviewSelectedCard = computed(() => {
+  const binding = selectedDataBinding.value
+  return Boolean(selectedCard.value && binding.enabled && binding.dataSourceId && binding.sql.trim() && !previewing.value)
 })
 
 async function loadEditor() {
@@ -252,6 +262,36 @@ async function removeSelectedCard() {
     showError(error)
   } finally {
     saving.value = false
+  }
+}
+
+async function previewSelectedCardQuery() {
+  if (!selectedCard.value) {
+    return
+  }
+  previewing.value = true
+  previewResult.value = null
+  previewError.value = ''
+  previewTraceId.value = ''
+  try {
+    const binding = ensureSelectedCardDataBinding()
+    if (!binding.enabled) {
+      throw new Error('请先启用数据绑定')
+    }
+    validateCardDataBinding(binding)
+    const response = await previewDashboardCardQuery(dashboardId.value, selectedCard.value.cardId, 20)
+    previewResult.value = response.data
+    previewTraceId.value = response.traceId
+  } catch (error) {
+    if (error instanceof Error) {
+      previewError.value = error.message
+      return
+    }
+    const requestError = error as RequestError
+    previewError.value = requestError.message || 'SQL 预览失败，请稍后重试'
+    previewTraceId.value = requestError.traceId || ''
+  } finally {
+    previewing.value = false
   }
 }
 
@@ -420,7 +460,26 @@ function syncFieldMappingText() {
   fieldMappingText.value = JSON.stringify(ensureSelectedCardDataBinding().fieldMapping || {}, null, 2)
 }
 
-watch(selectedCardId, syncFieldMappingText)
+function resetPreviewState() {
+  previewResult.value = null
+  previewError.value = ''
+  previewTraceId.value = ''
+}
+
+function displayCell(value: unknown) {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
+watch(selectedCardId, () => {
+  syncFieldMappingText()
+  resetPreviewState()
+})
 watch(cards, syncFieldMappingText)
 
 onMounted(loadEditor)
@@ -590,8 +649,45 @@ onMounted(loadEditor)
               字段映射 JSON 预留
               <textarea v-model="fieldMappingText" rows="6" placeholder='{"value":"total"}' />
             </label>
-            <button type="button" class="secondary-button" disabled>SQL 预览：下一阶段开放</button>
-            <p class="muted-line">当前不执行 SQL，不连接外部业务库，不做字段自动识别。</p>
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="!canPreviewSelectedCard"
+              @click="previewSelectedCardQuery"
+            >
+              {{ previewing ? 'SQL 预览中...' : 'SQL 预览' }}
+            </button>
+            <p class="muted-line">预览只返回少量样例数据，不保存到草稿，不做字段自动识别。</p>
+            <p v-if="previewError" class="message error-message compact-message">
+              {{ previewError }}<span v-if="previewTraceId">（traceId: {{ previewTraceId }}）</span>
+            </p>
+            <div v-if="previewResult" class="preview-result">
+              <div class="preview-meta">
+                <span>耗时：{{ previewResult.durationMs }} ms</span>
+                <span>行数：{{ previewResult.rowCount }}</span>
+                <span>traceId：{{ previewTraceId || '-' }}</span>
+              </div>
+              <p class="muted-line">字段映射下一阶段开放；当前可参考字段名手工填写 fieldMapping JSON。</p>
+              <div class="preview-table-wrap">
+                <table class="preview-table">
+                  <thead>
+                    <tr>
+                      <th v-for="column in previewResult.columns" :key="column.name">
+                        {{ column.name }}
+                        <small>{{ column.type }}</small>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, rowIndex) in previewResult.rows" :key="rowIndex">
+                      <td v-for="column in previewResult.columns" :key="column.name">
+                        {{ displayCell(row[column.name]) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           <div class="property-group">

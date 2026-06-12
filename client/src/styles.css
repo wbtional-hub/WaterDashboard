@@ -640,6 +640,55 @@ textarea {
   padding: 0.65rem;
 }
 
+.preview-result {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(73, 212, 157, 0.22);
+  border-radius: 10px;
+  background: rgba(4, 18, 31, 0.62);
+}
+
+.preview-meta {
+  display: grid;
+  gap: 0.35rem;
+  color: #b8cede;
+  font-size: 0.86rem;
+}
+
+.preview-table-wrap {
+  overflow: auto;
+  max-height: 18rem;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.preview-table th,
+.preview-table td {
+  max-width: 14rem;
+  border-bottom: 1px solid rgba(129, 178, 205, 0.13);
+  padding: 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-all;
+}
+
+.preview-table th {
+  color: #e8f7ff;
+  background: rgba(3, 13, 23, 0.45);
+}
+
+.preview-table small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #7f9bb0;
+  font-weight: 400;
+}
+
 @media (max-width: 760px) {
   .app-header,
   .page-heading,
