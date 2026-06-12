@@ -4,6 +4,7 @@ import HealthView from '@/pages/HealthView.vue'
 import HomeView from '@/pages/HomeView.vue'
 import DataSourcesView from '@/pages/DataSourcesView.vue'
 import ComponentTemplatesView from '@/pages/ComponentTemplatesView.vue'
+import DashboardsView from '@/pages/DashboardsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +28,11 @@ const router = createRouter({
       path: '/component-templates',
       name: 'component-templates',
       component: ComponentTemplatesView,
+    },
+    {
+      path: '/dashboards',
+      name: 'dashboards',
+      component: DashboardsView,
     },
   ],
 })

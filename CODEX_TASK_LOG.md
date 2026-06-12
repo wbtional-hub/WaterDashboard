@@ -280,3 +280,65 @@
 ### 未开发能力
 
 - 未开发大屏编辑器、拖拽画布、卡片 SQL 预览执行、字段映射、发布体检、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。
+
+## 第 7 次开发：第一阶段第 5 步大屏管理与草稿基础能力
+
+### 本次目标
+
+- 开发大屏管理与空草稿基础保存能力。
+- 本次只实现大屏基础信息管理、空草稿自动创建、草稿读取和草稿基础配置保存。
+- 本次不开发拖拽画布、卡片实例新增、卡片 SQL 预览、发布版本、浏览态大屏、真实 GIS/三维/G6、AI Gateway、完整权限中心或 License Center。
+
+### 实际修改
+
+- 新增后端大屏模块 `dashboard`。
+- 新增大屏基础接口，支持列表、详情、新增、编辑、启用、停用。
+- 新建大屏时自动创建 `dashboard_draft` 空草稿，初始 `revision=1`。
+- 新增草稿读取和保存接口，保存草稿时只更新 `platform.dashboard_draft`，并递增 `revision`。
+- 草稿 `configJson` 采用可扩展结构，包含 `schemaVersion`、`canvas`、`theme`、`cards`、`interactions`、`aiContext`。
+- `cards` 当前保持空数组，预留后续卡片实例配置。
+- `aiContext` 当前只预留 Dashboard Context Manifest，不调用 AI。
+- 新增 `V6__extend_dashboard_metadata.sql`，为 `platform.dashboard` 补充 `description`、屏幕尺寸、背景配置、主题配置和编码索引。
+- 新增前端 `/dashboards` 页面，支持大屏列表筛选、新增、编辑、启用、停用、查看草稿、生成基础草稿、格式化 JSON 和保存草稿。
+- 所有新增、修改、启用、停用、初始化草稿、保存草稿操作写入 `platform.audit_log`。
+- 所有接口继续返回 `success`、`code`、`message`、`data`、`traceId`。
+
+### 新增接口
+
+- `GET /api/platform/dashboards`
+- `GET /api/platform/dashboards/{id}`
+- `POST /api/platform/dashboards`
+- `PUT /api/platform/dashboards/{id}`
+- `PATCH /api/platform/dashboards/{id}/enable`
+- `PATCH /api/platform/dashboards/{id}/disable`
+- `GET /api/platform/dashboards/{id}/draft`
+- `PUT /api/platform/dashboards/{id}/draft`
+
+### 验证结果
+
+- `mvn test` 通过，3 个后端测试全部成功。
+- `mvn package -DskipTests` 通过。
+- `npm run build` 通过。
+- 后端使用本地 `water_dashboard` 库启动成功，Flyway 已执行到 `V6`。
+- `GET /api/health` 返回 `databaseStatus=UP`、`postgresConnected=true`、`postgisAvailable=true`。
+- 前端 `/data-sources` 返回 HTTP 200，数据源配置中心未被破坏。
+- 前端 `/component-templates` 返回 HTTP 200，组件模板管理未被破坏。
+- 前端 `/dashboards` 返回 HTTP 200。
+- 已验证大屏新增、编辑、启用、停用。
+- 已验证新建大屏自动创建空草稿，初始 `revision=1`。
+- 已验证草稿保存成功，保存后 `revision=2`。
+- 已验证草稿 `cards` 为可扩展空数组。
+- 已验证 `platform.dashboard_version` 未写入记录，草稿保存未影响发布版本设计。
+- 已验证 `platform.audit_log` 包含大屏新增、修改、启用、停用、草稿初始化、草稿保存记录。
+- 接口响应包含 `traceId`，未返回完整异常堆栈。
+
+### 遗留风险
+
+- 当前操作人仍暂用 `system`，后续权限中心建立后应接入真实 `UserContext`。
+- 草稿 JSON 当前做基础结构和危险脚本片段校验，后续进入编辑器阶段需要更严格的布局、卡片实例和字段映射 Schema 校验。
+- 当前草稿仅保存空画布配置，不包含拖拽画布、卡片实例、SQL 绑定、发布体检或浏览态运行能力。
+- `/api/health/error-demo` 仍仅用于骨架异常验证，后续应移除或限制在非生产环境。
+
+### 未开发能力
+
+- 未开发拖拽画布、卡片实例新增、卡片 SQL 预览执行、字段映射、发布体检、不可变版本发布、浏览页运行时、AI Gateway、GIS、三维、G6、完整权限中心和 License Center。

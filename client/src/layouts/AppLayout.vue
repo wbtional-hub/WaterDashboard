@@ -16,6 +16,7 @@ const systemStore = useSystemStore()
         <RouterLink to="/health">健康检查</RouterLink>
         <RouterLink to="/data-sources">数据源</RouterLink>
         <RouterLink to="/component-templates">组件模板</RouterLink>
+        <RouterLink to="/dashboards">大屏管理</RouterLink>
       </nav>
     </header>
 
